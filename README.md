@@ -15,7 +15,7 @@ Hard-PNG
 * 仅支持**8bit深度**，大多数png图片都是**8bit深度**。
 * 完全使用**SystemVerilog**实现，方便移植和仿真。
 
-| ![框图](https://github.com/WangXuan95/Hard-PNG/blob/master/images/blockdiagram.png) |
+| ![框图](./images/blockdiagram.png) |
 | :----: |
 | **图1** : Hard-PNG 原理框图 |
 
@@ -23,7 +23,7 @@ Hard-PNG
 
 **png**是仅次于**jpg**的第二常见的图象压缩格式，相比于**jpg**，**png**支持透明通道，支持无损压缩。在色彩丰富的数码照片中，无损压缩的**png**只能获得**1~4倍**的压缩比，低失真有损压缩的**png**能获得**4~20倍**的压缩比。在色彩较少的人工合成图（例如框图、平面设计）中，无损压缩的**png**就能获得**10倍**以上的压缩比。因此，**png**更适合压缩人工合成图，**jpg**更适合压缩数码照片。
 
-**png** 图片的文件扩展名为 **.png** 。以我们提供的文件 [**test1.png**](https://github.com/WangXuan95/Hard-PNG/blob/master/images/test1.png) 为例，它包含**98字节**，称为**原始码流**。我们可以使用[**WinHex软件**](http://www.x-ways.net/winhex/)查看它：
+**png** 图片的文件扩展名为 **.png** 。以我们提供的文件 [**test1.png**](./images/test1.png) 为例，它包含**98字节**，称为**原始码流**。我们可以使用[**WinHex软件**](http://www.x-ways.net/winhex/)查看它：
 ```
 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, ...... , 0xAE, 0x42, 0x60, 0x82
 ```
@@ -36,19 +36,19 @@ Hard-PNG
 
 # Hard-PNG 的使用
 
-**Hard-PNG**是一个能够输入**原始码流**，输出**解压后的像素**的硬件模块，它的代码在 [**hard_png.sv**](https://github.com/WangXuan95/Hard-PNG/blob/master/hard_png.sv) 中。其中 **hard_png** 是顶层模块，它的接口如**图2**所示
+**Hard-PNG**是一个能够输入**原始码流**，输出**解压后的像素**的硬件模块，它的代码在 [**hard_png.sv**](./hard_png.sv) 中。其中 **hard_png** 是顶层模块，它的接口如**图2**所示
 
-| ![接口图](https://github.com/WangXuan95/Hard-PNG/blob/master/images/interface.png) |
+| ![接口图](./images/interface.png) |
 | :----: |
 | **图2** : **hard_png** 接口图 |
 
 它的使用方法很简单，首先需要给 **clk** 信号提供时钟(频率不限)，并将 **rst** 信号置低，解除模块复位。
 然后将**原始码流**从**原始码流输入接口** 输入，就可以从**图象基本信息输出接口**和**像素输出接口**中得到解压结果。
 
-以[**test1.png**](https://github.com/WangXuan95/Hard-PNG/blob/master/images/test1.png)为例，我们应该以**图3**的时序把**原始码流**（98个字节）输入**hard_png**中。
+以[**test1.png**](./images/test1.png)为例，我们应该以**图3**的时序把**原始码流**（98个字节）输入**hard_png**中。
 该输入接口类似 **AXI-stream** ，其中 **ivalid=1** 时说明外部想发送一个字节给 **hard_png**。**iready=1** 时说明 **hard_png** 已经准备好接收一个字节。只有 **ivalid** 和 **iready** 同时 **=1** 时，**ibyte** 才被成功的输入 **hard_png** 中。
 
-| ![输入时序图](https://github.com/WangXuan95/Hard-PNG/blob/master/images/wave1.png) |
+| ![输入时序图](./images/wave1.png) |
 | :----: |
 | **图3** : **hard_png** 输入时序图，以 **test1.png** 为例 |
 
@@ -59,7 +59,7 @@ Hard-PNG
 | **颜色类型** | 灰度图 | 灰度+透明 | RGB / 索引RGB | RGBA |
 | **含义** | RGB通道相等, A通道=0xFF | RGB通道相等 | RGB通道不等, A通道=0xFF | RGBA通道均不等 |
 
-| ![输出时序图](https://github.com/WangXuan95/Hard-PNG/blob/master/images/wave2.png) |
+| ![输出时序图](./images/wave2.png) |
 | :----: |
 | **图4** : **hard_png** 输出时序图，以 **test1.png** 为例 |
 
@@ -68,11 +68,11 @@ Hard-PNG
 
 # 仿真
 
-[**tb_hard_png.sv**](https://github.com/WangXuan95/Hard-PNG/blob/master/tb_hard_png.sv) 是仿真的顶层，它从指定的 **.png** 文件中读取**原始码流**输入[**hard_png**](https://github.com/WangXuan95/Hard-PNG/blob/master/hard_png.sv)中，再接收**解压后的像素**并写入一个 **.txt** 文件。
+[**tb_hard_png.sv**](./tb_hard_png.sv) 是仿真的顶层，它从指定的 **.png** 文件中读取**原始码流**输入[**hard_png**](./hard_png.sv)中，再接收**解压后的像素**并写入一个 **.txt** 文件。
 
-仿真前，请将 [**tb_hard_png.sv**](https://github.com/WangXuan95/Hard-PNG/blob/master/tb_hard_png.sv) 中的**PNG_FILE宏名**改为 **.png** 文件的路径，将**OUT_FILE宏名**改为 **.txt** 文件的路径。然后运行仿真。 **.png** 文件越大，仿真的时间越长。当**ivalid**信号出现下降沿时，仿真完成。然后你可以从 **.txt** 文件中查看解压结果。
+仿真前，请将 [**tb_hard_png.sv**](./tb_hard_png.sv) 中的**PNG_FILE宏名**改为 **.png** 文件的路径，将**OUT_FILE宏名**改为 **.txt** 文件的路径。然后运行仿真。 **.png** 文件越大，仿真的时间越长。当**ivalid**信号出现下降沿时，仿真完成。然后你可以从 **.txt** 文件中查看解压结果。
 
-我们在 [**images文件夹**](https://github.com/WangXuan95/Hard-PNG/blob/master/images) 下提供了多个 **.png** 文件，它们尺寸各异，且有不同的颜色类型，你可以用它们进行仿真。以 [**test3.png**](https://github.com/WangXuan95/Hard-PNG/blob/master/images/test3.png) 为例，仿真得到的 **.txt** 文件如下：
+我们在 [**images文件夹**](./images) 下提供了多个 **.png** 文件，它们尺寸各异，且有不同的颜色类型，你可以用它们进行仿真。以 [**test3.png**](./images/test3.png) 为例，仿真得到的 **.txt** 文件如下：
 ```
 frame  type:2  width:83  height:74 
 f4d8c3ff f4d8c3ff f4d8c3ff f4d8c3ff f4d8c3ff f4d9c3ff ......
@@ -81,7 +81,7 @@ f4d8c3ff f4d8c3ff f4d8c3ff f4d8c3ff f4d8c3ff f4d9c3ff ......
 
 # 正确性验证
 
-为了验证解压结果是否正确，我们提供了**Python**程序 [**validation.py**](https://github.com/WangXuan95/Hard-PNG/blob/master/validation.py) ，它对 **.png** 文件进行软件解压，并与仿真得到的 **.txt** 文件进行比较，若比较结果相同则验证通过。为了准备必要的运行环境，请安装**Python3**以及其配套的 [**numpy**](https://pypi.org/project/numpy/) 和 [**PIL**](https://pypi.org/project/Pillow/) 库。运行环境准备好后，打开 [**validation.py**](https://github.com/WangXuan95/Hard-PNG/blob/master/validation.py) ，将变量 **PNG_FILE** 改为要验证的 **.png** 文件的路径，将 **TXT_FILE** 改为仿真输出的 **.txt** 文件的路径，然后用命令运行它：
+为了验证解压结果是否正确，我们提供了**Python**程序 [**validation.py**](./validation.py) ，它对 **.png** 文件进行软件解压，并与仿真得到的 **.txt** 文件进行比较，若比较结果相同则验证通过。为了准备必要的运行环境，请安装**Python3**以及其配套的 [**numpy**](https://pypi.org/project/numpy/) 和 [**PIL**](https://pypi.org/project/Pillow/) 库。运行环境准备好后，打开 [**validation.py**](./validation.py) ，将变量 **PNG_FILE** 改为要验证的 **.png** 文件的路径，将 **TXT_FILE** 改为仿真输出的 **.txt** 文件的路径，然后用命令运行它：
 ```
 python validation.py
 ```
