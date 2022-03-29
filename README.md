@@ -1,4 +1,4 @@
-![语言](https://img.shields.io/badge/语言-systemverilog_(IEEE1800_2005)-CAD09D.svg)![仿真](https://img.shields.io/badge/仿真-iverilog-green.svg)![部署](https://img.shields.io/badge/部署-quartus-blue.svg)![部署](https://img.shields.io/badge/部署-vivado-FF1010.svg)
+![语言](https://img.shields.io/badge/语言-systemverilog_(IEEE1800_2005)-CAD09D.svg) ![仿真](https://img.shields.io/badge/仿真-iverilog-green.svg) ![部署](https://img.shields.io/badge/部署-quartus-blue.svg) ![部署](https://img.shields.io/badge/部署-vivado-FF1010.svg)
 
 Hard-PNG
 ===========================
