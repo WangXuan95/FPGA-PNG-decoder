@@ -12,6 +12,7 @@ module huffman_builder #(
     parameter OUTWIDTH = 10
 ) (
     rstn, clk,
+    istart,
     wren, wraddr, wrdata,
     run , done,
     rdaddr, rddata
@@ -25,6 +26,7 @@ endfunction
 
 input                               rstn;
 input                               clk;
+input                               istart;
 input                               wren;
 input  [  clogb2(NUMCODES-1)-1:0]   wraddr;
 input  [           CODEBITS -1:0]   wrdata;
@@ -33,18 +35,19 @@ output                              done;
 input  [clogb2(2*NUMCODES-1)-1:0]   rdaddr;
 output [            OUTWIDTH-1:0]   rddata;
 
-wire                              rstn;
-wire                              clk;
-wire                              wren;
-wire [  clogb2(NUMCODES-1)-1:0]   wraddr;
-wire [           CODEBITS -1:0]   wrdata;
-wire                              run;
-wire                              done;
-wire [clogb2(2*NUMCODES-1)-1:0]   rdaddr;
-reg  [            OUTWIDTH-1:0]   rddata;
+wire                                rstn;
+wire                                clk;
+wire                                istart;
+wire                                wren;
+wire   [  clogb2(NUMCODES-1)-1:0]   wraddr;
+wire   [           CODEBITS -1:0]   wrdata;
+wire                                run;
+wire                                done;
+wire   [clogb2(2*NUMCODES-1)-1:0]   rdaddr;
+reg    [            OUTWIDTH-1:0]   rddata;
 
-reg  [clogb2(NUMCODES)-1:0] blcount  [BITLENGTH];
-reg  [   (1<<CODEBITS)-1:0] nextcode [BITLENGTH+1];
+reg    [clogb2(NUMCODES)-1:0] blcount  [BITLENGTH];
+reg    [   (1<<CODEBITS)-1:0] nextcode [BITLENGTH+1];
 
 initial for(int i=0; i< BITLENGTH; i++)  blcount[i] = '0;
 initial for(int i=0; i<=BITLENGTH; i++) nextcode[i] = '0;
@@ -77,18 +80,29 @@ always @ (posedge clk or negedge rstn)
         lii <= '0;
         lnn <= '0;
     end else begin
-        valid <= build_tree2d & nn<NUMCODES & blen>0;
-        treepos <= ntreepos;
-        tpos <= ntpos;
-        lii <= ii;
-        lnn <= nn;
+        if(istart) begin
+            valid <= '0;
+            treepos <= '0;
+            tpos <= '0;
+            lii <= '0;
+            lnn <= '0;
+        end else begin
+            valid <= build_tree2d & nn<NUMCODES & blen>0;
+            treepos <= ntreepos;
+            tpos <= ntpos;
+            lii <= ii;
+            lnn <= nn;
+        end
     end
 
 always @ (posedge clk or negedge rstn)
     if(~rstn)
         blen <= '0;
     else begin
-        if(islast) blen <= blenn;
+        if(istart)
+            blen <= '0;
+        else if(islast)
+            blen <= blenn;
     end
 
 always @ (posedge clk or negedge rstn)
@@ -96,7 +110,7 @@ always @ (posedge clk or negedge rstn)
         for(int i=0; i<BITLENGTH; i++)
             blcount[i] <= '0;
     end else begin
-        if(done) begin
+        if(istart | done) begin
             for(int i=0; i<BITLENGTH; i++)
                 blcount[i] <= '0;
         end else begin
@@ -115,7 +129,7 @@ always @ (posedge clk or negedge rstn)
     if(~rstn)
         nn <= '0;
     else
-        nn <= nnn;
+        nn <= istart ? '0 : nnn;
 
 always @ (posedge clk or negedge rstn)
     if(~rstn) begin
@@ -129,7 +143,14 @@ always @ (posedge clk or negedge rstn)
     end else begin
         nextcode[0] <= '0;
         alldone <= 1'b0;
-        if(run) begin
+        if(istart | ~run) begin
+            if(istart) for(int i=0; i<=BITLENGTH; i++) nextcode[i] <= '0;
+            ii <= '0;
+            idx <= '0;
+            build_tree2d <= 1'b0;
+            clearidx <= '0;
+            clear_tree2d <= 1'b0;
+        end else if(run) begin
             if(~clear_tree2d) begin
                 if( clearidx >= (clogb2(2*NUMCODES-1))'(2*NUMCODES-1) )
                     clear_tree2d <= 1'b1;
@@ -153,12 +174,6 @@ always @ (posedge clk or negedge rstn)
                     build_tree2d <= 1'b1;
                 end
             end
-        end else begin
-            ii <= '0;
-            idx <= '0;
-            build_tree2d <= 1'b0;
-            clearidx <= '0;
-            clear_tree2d <= 1'b0;
         end
     end
 
@@ -177,7 +192,9 @@ always @ (posedge clk or negedge rstn)
     if(~rstn) begin
         nodefilled <= '0;
     end else begin
-        if(~run)
+        if(istart)
+            nodefilled <= '0;
+        else if(~run)
             nodefilled <=              (clogb2(2*NUMCODES-1))'(1);
         else if(valid & rdfilled & lii>0)
             nodefilled <= nodefilled + (clogb2(2*NUMCODES-1))'(1);

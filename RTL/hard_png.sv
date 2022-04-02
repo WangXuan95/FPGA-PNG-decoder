@@ -10,11 +10,12 @@ module hard_png (
     input  wire         rstn,
     input  wire         clk,
     // png data input stream
+    input  wire         istart,
     input  wire         ivalid,
     output reg          iready,
     input  wire [ 7:0]  ibyte,
     // image frame configuration output
-    output reg          newframe,
+    output reg          ostart,
     output wire [ 2:0]  colortype, // 0:gray   1:gray+A   2:RGB   3:RGBA   4:RGB-plte
     output wire [13:0]  width,     // image width
     output wire [31:0]  height,    // image height
@@ -23,10 +24,8 @@ module hard_png (
     output wire [ 7:0]  opixelr, opixelg, opixelb, opixela
 );
 
-initial newframe = 1'b0;
+initial ostart = 1'b0;
 initial ovalid = 1'b0;
-
-reg          imagevalid = '0;
 
 reg          isplte = '0;
 
@@ -88,7 +87,9 @@ generate genvar ii;
             if(~rstn)
                 latchbytes[ii] <= '0;
             else begin
-                if(ivalid)
+                if(istart)
+                    latchbytes[ii] <= '0;
+                else if(ivalid)
                     latchbytes[ii] <= lastbytes[ii+1];
             end
     end
@@ -134,7 +135,7 @@ wire parametervalid =   (   lastbytes[7]==8'h0 &&
                         );
 
 always_comb
-    if(imagevalid && cnt>0 && curr_name==IDAT && gapcnt==2'd0) begin
+    if(cnt>0 && curr_name==IDAT && gapcnt==2'd0) begin
         iready = pready;
         pvalid = ivalid;
         pbyte  = ibyte;
@@ -152,7 +153,6 @@ always @ (posedge clk or negedge rstn)
         gapcnt <= '0;
         busy <= 1'b0;
         sizevalid <= 1'b0;
-        imagevalid <= 1'b0;
         curr_name <= NONE;
         ispltetmp <= 1'b0;
         bpptmp <= '0;
@@ -164,18 +164,38 @@ always @ (posedge clk or negedge rstn)
         ppr    <= '0;
         bpr    <= '0;
         rpf    <= '0;
-        newframe <= 1'b0;
+        ostart <= 1'b0;
         plte_wen <= 1'b0;
         plte_waddr <= '0;
         plte_wdata <= '0;
         plte_bytecnt <= '0;
         plte_pixcnt  <= '0;
     end else begin
-        newframe <= 1'b0;
+        ostart <= 1'b0;
         plte_wen <= 1'b0;
         plte_waddr <= '0;
         plte_wdata <= '0;
-        if(ivalid) begin
+        if(istart) begin
+            bcnt <= '0;
+            cnt  <= '0;
+            crccnt <= '0;
+            gapcnt <= '0;
+            busy <= 1'b0;
+            sizevalid <= 1'b0;
+            curr_name <= NONE;
+            ispltetmp <= 1'b0;
+            bpptmp <= '0;
+            pprtmp <= '0;
+            bprtmp <= '0;
+            rpftmp <= '0;
+            isplte <= 1'b0;
+            bpp    <= '0;
+            ppr    <= '0;
+            bpr    <= '0;
+            rpf    <= '0;
+            plte_bytecnt <= '0;
+            plte_pixcnt  <= '0;
+        end else if(ivalid) begin
             plte_bytecnt <= '0;
             plte_pixcnt  <= '0;
             if(~busy) begin
@@ -190,7 +210,6 @@ always @ (posedge clk or negedge rstn)
                         cnt  <= cnt - 1;
                         gapcnt <= 2'd2;
                         if(cnt==6) begin
-                            imagevalid <= 1'b0;
                             rpftmp <= l32bit;
                             if(h32bit[31:14]=='0) begin
                                 sizevalid <= 1'b1;
@@ -211,15 +230,13 @@ always @ (posedge clk or negedge rstn)
                             endcase
                         end else if(cnt==1) begin
                             if(sizevalid && parametervalid && (bprtmp[15:14]==2'd0)) begin
-                                newframe <= 1'b1;
-                                imagevalid <= 1'b1;
+                                ostart <= 1'b1;
                                 isplte <= ispltetmp;
                                 bpp <= bpptmp;
                                 ppr <= pprtmp;
                                 bpr <= bprtmp[13:0];
                                 rpf <= rpftmp;
                             end else begin
-                                imagevalid <= 1'b0;
                                 isplte <= 1'b0;
                                 bpp <= '0;
                                 ppr <= '0;
@@ -230,7 +247,7 @@ always @ (posedge clk or negedge rstn)
                     end else if(curr_name==IDAT) begin
                         if(gapcnt>2'd0)
                             gapcnt <= gapcnt - 2'd1;
-                        if(imagevalid && gapcnt==2'd0) begin
+                        if(gapcnt==2'd0) begin
                             if(pready)
                                 cnt <= cnt - 1;
                         end else begin
@@ -291,36 +308,26 @@ always @ (posedge clk or negedge rstn)
 // uz_inflate
 //-----------------------------------------------------------------------------------------------------------------------
 
-reg  end_stream = '0;
+reg        end_stream = '0;
 
 wire       huffman_ovalid;
 wire [7:0] huffman_obyte;
-reg        raw_ovalid;
-reg  [7:0] raw_obyte;
 
-reg        raw_mode = 1'b0;
-reg        raw_format = '0;
-
-reg [ 2:0] status = '0;
-reg [15:0] rcnt = '0;
 reg [ 2:0] uz_cnt = '0;
 reg [ 7:0] rbyte = '0;
 
-reg       tvalid;
-wire      tready;
-reg       tbit;
+reg        tvalid;
+wire       tready;
+reg        tbit;
 
 always @ (posedge clk or negedge rstn)
     if(~rstn) begin
         mvalid <= 1'b0;
         mbyte  <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             mvalid <= 1'b0;
             mbyte  <= '0;
-        end else if(raw_mode) begin
-            mvalid <= raw_ovalid;
-            mbyte  <= raw_obyte;
         end else begin
             mvalid <= huffman_ovalid;
             mbyte  <= huffman_obyte;
@@ -328,98 +335,33 @@ always @ (posedge clk or negedge rstn)
     end
 
 always_comb
-    if(~imagevalid) begin
-        raw_ovalid = 1'b0;
-        raw_obyte  = '0;
-        pready = 1'b0;
-        tvalid = 1'b0;
-        tbit   = 1'b0;
+    if(uz_cnt==3'h0) begin
+        pready = tready;
+        tvalid = pvalid;
+        tbit   = pbyte[0];
     end else begin
-        raw_ovalid = 1'b0;
-        raw_obyte  = '0;
-        if(raw_mode) begin
-            pready = 1'b1;
-            tvalid = 1'b0;
-            tbit   = 1'b0;
-            if(status>=3) begin
-                raw_ovalid = pvalid;
-                raw_obyte  = pbyte;
-            end
-        end if(raw_format) begin
-            pready = 1'b1;
-            tvalid = 1'b0;
-            tbit   = 1'b0;
-        end else if(uz_cnt==3'h0) begin
-            pready = tready;
-            tvalid = pvalid;
-            tbit   = pbyte[0];
-        end else begin
-            pready = 1'b0;
-            tvalid = 1'b1;
-            tbit   = rbyte[uz_cnt];
-        end
+        pready = 1'b0;
+        tvalid = 1'b1;
+        tbit   = rbyte[uz_cnt];
     end
 
 always @ (posedge clk or negedge rstn)
     if(~rstn) begin
-        raw_mode <= 1'b0;
         uz_cnt <= '0;
         rbyte <= '0;
-        rcnt <= '0;
-        status <= '0;
     end else begin
-        if(~imagevalid) begin
-            raw_mode <= 1'b0;
+        if(istart) begin
             uz_cnt <= '0;
             rbyte <= '0;
-            rcnt <= '0;
-            status <= '0;
-        end else if(raw_mode) begin
-            uz_cnt <= '0;
-            rbyte <= '0;
-            if(pvalid) begin
-                if         (status==0) begin
-                    rcnt[15:8] <= pbyte;
-                    status <= status + 3'h1;
-                end else if(status==1) begin
-                    status <= status + 3'h1;
-                end else if(status==2) begin
-                    if(rcnt>0) begin
-                        rcnt <= rcnt - 16'd1;
-                        status <= status + 3'h1;
-                    end else begin
-                        raw_mode <= 1'b0;
-                        status <= '0;
-                    end
-                end else begin
-                    if(rcnt>0) begin
-                        rcnt <= rcnt - 16'd1;
-                    end else begin
-                        raw_mode <= 1'b0;
-                        status <= '0;
-                    end
-                end
-            end
         end else begin
-            rcnt <= '0;
-            status <= '0;
-            if(raw_format) begin
-                if(pvalid) begin
-                    raw_mode <= 1'b1;
-                    rcnt[ 7:0] <= pbyte;
+            if(uz_cnt==3'h0) begin
+                if(pvalid & tready) begin
+                    uz_cnt <= uz_cnt + 3'h1;
+                    rbyte <= pbyte;
                 end
-                uz_cnt <= '0;
-                rbyte <= '0;
             end else begin
-                if(uz_cnt==3'h0) begin
-                    if(pvalid & tready) begin
-                        uz_cnt <= uz_cnt + 3'h1;
-                        rbyte <= pbyte;
-                    end
-                end else begin
-                    if(tready)
-                        uz_cnt <= uz_cnt + 3'h1;
-                end
+                if(tready)
+                    uz_cnt <= uz_cnt + 3'h1;
             end
         end
     end
@@ -439,8 +381,6 @@ reg        srepeat = 1'b0;
 
 reg symbol_valid = 1'b0;
 reg [7:0] symbol  = '0;
-
-reg  decoder_new = 1'b1;
 
 reg  [ 1:0] iword = '0;
 reg  [ 1:0] ibcnt = '0;
@@ -484,14 +424,14 @@ reg  [ 3:0] dscnt=4'h0, dsmax=4'h0;
 
 enum {T, D, R, S} huffman_status = T;
 
-wire   lentree_ien  = ~end_stream & ~raw_format & tvalid & lentree_done &  ~lentree_codeen & (repeat_mode==REPEAT_NONE && repeat_len==8'd0) & (tree_wpt<hmax);
-wire   codetree_ien = ~end_stream & ~raw_format & tvalid & tree_done    & ~codetree_codeen & (tcnt==3'd0) & (dscnt==4'd0) & (huffman_status==T);
-wire   distree_ien  = ~end_stream & ~raw_format & tvalid & tree_done    &  ~distree_codeen & (tcnt==3'd0) & (dscnt==4'd0) & (huffman_status==D);
+wire   lentree_ien  = ~end_stream & tvalid & lentree_done &  ~lentree_codeen & (repeat_mode==REPEAT_NONE && repeat_len==8'd0) & (tree_wpt<hmax);
+wire   codetree_ien = ~end_stream & tvalid & tree_done    & ~codetree_codeen & (tcnt==3'd0) & (dscnt==4'd0) & (huffman_status==T);
+wire   distree_ien  = ~end_stream & tvalid & tree_done    &  ~distree_codeen & (tcnt==3'd0) & (dscnt==4'd0) & (huffman_status==D);
 
-assign tready = end_stream | (~raw_format & (
+assign tready = end_stream | & (
     ( precode_wpt<5'd17 || lentree_wpt<hclen ) |
     ( lentree_done & ~lentree_codeen & ((repeat_mode==REPEAT_NONE && repeat_len==8'd0) | repeat_code_pt>3'd0) & (tree_wpt<hmax) ) |
-    ( tree_done & ~codetree_codeen & ~distree_codeen & (huffman_status==T || huffman_status==D || (huffman_status==R && dscnt>4'd0)) ) ) );
+    ( tree_done & ~codetree_codeen & ~distree_codeen & (huffman_status==T || huffman_status==D || (huffman_status==R && dscnt>4'd0)) ) );
 
 reg  [ 8:0] lengthb= '0;
 reg  [ 5:0] lengthe= '0;
@@ -575,20 +515,17 @@ endtask
 
 always @ (posedge clk or negedge rstn)
     if(~rstn) begin
-        {raw_format, end_stream} <= '0;
-        decoder_new <= 1'b1;
+        end_stream <= '0;
         reset_all_regs;
     end else begin
-        if(raw_mode) begin
-            {raw_format, end_stream} <= '0;
-            decoder_new <= 1'b1;
+        if(istart) begin
+            end_stream <= '0;
             reset_all_regs;
         end else begin
             symbol_valid <= 1'b0;
             symbol       <= '0;
             irepeat  <= 1'b0;
             srepeat  <= 1'b0;
-            decoder_new <= 1'b0;
             lentree_write();
             codetree_write();
             distree_write();
@@ -602,16 +539,12 @@ always @ (posedge clk or negedge rstn)
                     end else if(precode_wpt==1) begin
                         bfix <= tbit;
                     end else begin
-                        case({tbit,bfix})
-                        2'b00 :
-                            raw_format <= 1'b1;
-                        2'b01 : begin
+                        if( {tbit,bfix} == 2'b01 ) begin
                             precode_wpt <= '1;
                             lentree_wpt <= '1;
                             tree_wpt <= '1;
                             fixed_tree <= 1'b1;
                         end
-                        endcase
                     end
                 end
             end else if(precode_wpt<17) begin
@@ -777,6 +710,7 @@ huffman_builder #(
 ) lentree_builder (
     .rstn      ( rstn           ),
     .clk       ( clk            ),
+    .istart    ( istart         ),
     .wren      ( lentree_wen    ),
     .wraddr    ( lentree_waddr  ),
     .wrdata    ( lentree_wdata  ),
@@ -796,7 +730,7 @@ huffman_decoder #(
 ) lentree_decoder (
     .rstn      ( rstn           ),
     .clk       ( clk            ),
-    .inew      ( decoder_new    ),
+    .istart    ( istart         ),
     .ien       ( lentree_ien    ),
     .ibit      ( tbit           ),
     .oen       ( lentree_codeen ),
@@ -817,6 +751,7 @@ huffman_builder #(
 ) codetree_builder (
     .rstn      ( rstn           ),
     .clk       ( clk            ),
+    .istart    ( istart         ),
     .wren      ( codetree_wen   ),
     .wraddr    ( codetree_waddr ),
     .wrdata    ( (5)'(codetree_wdata) ),
@@ -844,7 +779,7 @@ huffman_decoder #(
 ) codetree_decoder (
     .rstn      ( rstn           ),
     .clk       ( clk            ),
-    .inew      ( decoder_new    ),
+    .istart    ( istart         ),
     .ien       ( codetree_ien   ),
     .ibit      ( tbit           ),
     .oen       ( codetree_codeen),
@@ -865,9 +800,10 @@ huffman_builder #(
 ) distree_builder (
     .rstn      ( rstn           ),
     .clk       ( clk            ),
+    .istart    ( istart         ),
     .wren      ( distree_wen    ),
     .wraddr    ( distree_waddr  ),
-    .wrdata    ( (5)'(distree_wdata)  ),
+    .wrdata    ( (5)'(distree_wdata) ),
     .run       ( tree_run       ),
     .done      ( distree_done   ),
     .rdaddr    ( distree_raddr  ),
@@ -892,7 +828,7 @@ huffman_decoder #(
 ) distree_decoder (
     .rstn      ( rstn           ),
     .clk       ( clk            ),
-    .inew      ( decoder_new    ),
+    .istart    ( istart         ),
     .ien       ( distree_ien    ),
     .ibit      ( tbit           ),
     .oen       ( distree_codeen ),
@@ -923,7 +859,10 @@ always @ (posedge clk or negedge rstn)
     if(~rstn)
         wptr <= '0;
     else begin
-        if(huffman_ovalid) wptr <= (wptr<(REPEAT_BUFFER_MAXLEN-16'd1)) ? wptr+16'd1 : '0;
+        if(istart)
+            wptr <= '0;
+        else if(huffman_ovalid)
+            wptr <= (wptr<(REPEAT_BUFFER_MAXLEN-16'd1)) ? wptr+16'd1 : '0;
     end
 
 always @ (posedge clk or negedge rstn)
@@ -932,7 +871,11 @@ always @ (posedge clk or negedge rstn)
         sptr <= '0;
         eptr <= '0;
     end else begin
-        if(srepeat) begin
+        if(istart) begin
+            rptr <= '0;
+            sptr <= '0;
+            eptr <= '0;
+        end else if(srepeat) begin
             rptr <= sptrw;
             sptr <= sptrw;
             eptr <= eptrw;
@@ -948,7 +891,7 @@ always @ (posedge clk or negedge rstn)
     if(~rstn)
         repeat_valid <= '0;
     else
-        repeat_valid <= irepeat;
+        repeat_valid <= istart ? '0 : irepeat;
 
 reg [7:0] mem_repeat_buffer [REPEAT_BUFFER_MAXLEN];
 
@@ -996,7 +939,7 @@ always @ (posedge clk or negedge rstn)
         nfirstrow <= 1'b0;
         col       <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             nfirstrow <= 1'b0;
             col       <= '0;
         end else if(mvalid) begin
@@ -1013,9 +956,9 @@ always @ (posedge clk or negedge rstn)
     if(~rstn) begin
         mode <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart)
             mode <= '0;
-        end else if(mvalid && col==14'h0)
+        else if(mvalid && col==14'h0)
             mode <= mbyte[2:0];
     end
 
@@ -1027,7 +970,7 @@ always_comb
         3'd3   : fdata = mbyte + SSdata[8:1];
         default: fdata = mbyte + paeth( (nfirstcol ? LLdata : 8'h0),
                                         (nfirstrow ? UUdata : 8'h0),
-                                        (nfirstrow&nfirstcol ? ULdata : 8'h0) );
+                                        (nfirstrow & nfirstcol ? ULdata : 8'h0) );
     endcase
 
 always @ (posedge clk or negedge rstn)
@@ -1035,7 +978,7 @@ always @ (posedge clk or negedge rstn)
         bvalid <= 1'b0;
         bbyte  <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             bvalid <= 1'b0;
             bbyte  <= '0;
         end else begin
@@ -1052,7 +995,7 @@ always @ (posedge clk or negedge rstn)
     if(~rstn) begin
         mem_sr_currline[0] <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             mem_sr_currline[0] <= '0;
         end else if(mvalid)
             mem_sr_currline[0] <= fdata;
@@ -1063,7 +1006,7 @@ generate genvar isrcl;
             if(~rstn) begin
                 mem_sr_currline[isrcl+1] <= '0;
             end else begin
-                if(~imagevalid) begin
+                if(istart) begin
                     mem_sr_currline[isrcl+1] <= '0;
                 end else if(mvalid)
                     mem_sr_currline[isrcl+1] <= mem_sr_currline[isrcl];
@@ -1080,7 +1023,7 @@ always @ (posedge clk or negedge rstn)
     if(~rstn) begin
         mem_sr_prevline[0]  <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             mem_sr_prevline[0] <= '0;
         end else if(mvalid)
             mem_sr_prevline[0] <= UUdata;
@@ -1091,7 +1034,7 @@ generate genvar isrpl;
             if(~rstn) begin
                 mem_sr_prevline[isrpl+1]  <= '0;
             end else begin
-                if(~imagevalid) begin
+                if(istart) begin
                     mem_sr_prevline[isrpl+1] <= '0;
                 end else if(mvalid)
                     mem_sr_prevline[isrpl+1] <= mem_sr_prevline[isrpl];
@@ -1111,7 +1054,7 @@ always @ (posedge clk or negedge rstn)
     if(~rstn) begin
         sb_lidata <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             sb_lidata <= '0;
         end else if(mvalid)
             sb_lidata <= fdata;
@@ -1121,7 +1064,7 @@ always @ (posedge clk or negedge rstn)
     if(~rstn) begin
         sb_ptr <= '0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             sb_ptr <= '0;
         end else if(mvalid) begin
             if(sb_ptr < (bpr-14'd1))
@@ -1136,7 +1079,7 @@ always @ (posedge clk or negedge rstn)
         sb_ldata  <= '0;
         sb_rvalid <= 1'b0;
     end else begin
-        if(~imagevalid) begin
+        if(istart) begin
             sb_ldata  <= '0;
             sb_rvalid <= 1'b0;
         end else begin
@@ -1177,7 +1120,7 @@ always @ (posedge clk or negedge rstn)
         {pr, pg, pb, pa} <= 0;
     end else begin
         ovalid <= 1'b0;
-        if(newframe) begin
+        if(istart | ostart) begin
             pixcnt <= '0;
             {pr, pg, pb, pa} <= 0;
         end else if(bvalid) begin

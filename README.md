@@ -10,7 +10,7 @@ Hard-PNG
 
 | ![diagram](./figures/diagram.png) |
 | :----: |
-| 图1 : Hard-PNG 原理框图 |
+| **图1** : Hard-PNG 原理框图 |
 
 
 
@@ -34,37 +34,39 @@ png 图像文件的扩展名为 .png 。以本库中的 SIM/test_image/img01.png
 
 # 使用 Hard-PNG
 
-RTL 目录中的 hard_png.sv 是一个能够输入 png 码流，输出解压后的像素的模块，它的接口如图2所示。
+RTL 目录中的 hard_png.sv 是一个能够输入 png 码流，输出解压后的像素的模块，它的接口如**图2**所示。
 
 | ![接口图](./figures/interface.png) |
 | :----: |
-| 图2 : hard_png 接口图 |
+| **图2** : hard_png 接口图 |
 
-hard_png 的使用方法很简单，在输入一张 png 图像的码流前，先要给模块复位（令 rstn=0 至少一个时钟周期），然后解除复位（令 rstn=1），然后输入 png 码流，并从图象基本信息输出接口和像素输出接口中得到解码结果。
+## 输入码流
 
-以 SIM/test_image/img01.png 为例，我们应该以图3的时序把 png 码流中的98个字节逐一输入到 hard_png 中。其中 ivalid 和 iready 构成了握手信号： ivalid=1 时说明外部想发送一个字节给 hard_png。iready=1 时说明 hard_png 已经准备好接收一个字节。只有 ivalid 和 iready 同时=1 时，ibyte 才被成功的输入 hard_png 中。
+hard_png 的使用方法很简单，以 SIM/test_image/img01.png 这张图像为例，如**图3**，在输入一张图象的码流前，先要令 istart 上产生一个高电平脉冲（宽度至少为一个时钟周期），然后通过 ivalid 和 ibyte 信号来输入码流（这张图象的 png 码流有 98 字节，这 98 字节都要逐一输入给 hard_png），其中 ivalid 和 iready 构成了握手信号： ivalid=1 时说明外部想发送一个字节给 hard_png。iready=1 时说明 hard_png 已经准备好接收一个字节。只有 ivalid 和 iready 同时=1 时握手才成功，ibyte 才被成功的输入 hard_png 中。
 
 | ![输入时序图](./figures/wave1.png) |
 | :----: |
-| 图3 : hard_png 的输入波形图 |
+| **图3** : hard_png 的输入波形图 |
 
-在输入的同时，解压结果从模块中输出，如图4。在一帧图象输出前，newframe 信号会出现一个时钟周期的高电平脉冲，同时 colortype, width, height 有效。其中：
+当一张 png 图象的码流输入结束后，可以立即或稍后输入下一张图像（也就是让 istart 上产生高电平脉冲，然后输入码流）。
 
-- width, height 分别为图象的宽度和高度
-- colortype 为 png 图像的颜色类型，含义如下表。
+## 输出图像信息和像素
 
-| colortype | 3'd0 | 3'd1 | 3'd2 | 3'd3 | 3‘d4 |
+在输入码流的同时，这张图象的解压结果（也就是图像基本信息和原始像素）会从模块中输出，如**图4**，在图象的像素输出前，ovalid 信号会出现一个时钟周期的高电平脉冲，同时 colortype, width, height 会有效。其中：
+
+- width, height 分别是图象的宽度和高度
+- colortype 是 png 图像的颜色类型，含义如下表。
+
+| colortype 值 | 3'd0 | 3'd1 | 3'd2 | 3'd3 | 3‘d4 |
 | :-------: | :--: | :--: | :--: | :--: | :--: |
 | 颜色类型 | 灰度 | 灰度+A | RGB | RGB+A | 索引RGB |
 | 备注 | R=G=B，A=0xFF | R=G=B≠A | R≠G≠B，A=0xFF | R≠G≠B≠A | R≠G≠B，A=0xFF |
 
-然后，ovalid=1 代表该时钟周期有一个像素输出，该像素的 R,G,B,A 通道分别出现在 opixelr,opixelg,opixelb,opixela 信号上。
+然后，ovalid=1 代表该时钟周期有一个像素输出，该像素的 R,G,B,A 通道会分别出现在 opixelr,opixelg,opixelb,opixela 信号上。
 
 | ![输出时序图](./figures/wave2.png) |
 | :----: |
-| 图4 : hard_png 的输出波形图 |
-
-当一个 png 图象输入结束后，可以立即或稍后输入下一张图像（复位->解除复位->输入码流）。
+| **图4** : hard_png 的输出波形图 |
 
 
 
@@ -79,7 +81,7 @@ hard_png 的使用方法很简单，在输入一张 png 图像的码流前，先
 
 使用 iverilog 进行仿真前，需要安装 iverilog ，见：[iverilog_usage](https://github.com/WangXuan95/WangXuan95/blob/main/iverilog_usage/iverilog_usage.md)
 
-然后双击 tb_hard_png_run_iverilog.bat 运行仿真，会运行大约半小时（可以中途强制关闭，但产生的仿真波形就是不全的）。
+然后双击 tb_hard_png_run_iverilog.bat 即可运行仿真，会运行大约半小时（可以中途强制关闭，但产生的仿真波形就是不全的）。
 
 仿真运行完后，可以打开生成的 dump.vcd 文件查看波形。
 
@@ -120,18 +122,19 @@ total 400 pixels validation successful!!
 |           FPGA 型号            | LUT  | LUT(%) |  FF  | FF(%) | Logic | Logic(%) |  BRAM   | BRAM(%) |
 | :----------------------------: | :--: | :----: | :--: | :---: | :---: | :------: | :-----: | :-----: |
 |     Xilinx Artix-7 XC7A35T     | 2581 |  13%   | 2253 |  5%   |   -   |    -     | 792kbit |   44%   |
-| Altera Cyclone IV EP4CE40F23C6 |  -   |   -    |  -   |   -   | 4551  |   11%    | 427kbit |   37%   |
+| Altera Cyclone IV EP4CE40F23C6 |  -   |   -    |  -   |   -   | 4682  |   11%    | 427kbit |   37%   |
 
 ## 性能
 
 在 Altera Cyclone IV EP4CE40F23C6 上部署 hard_png ，时钟频率= 50MHz （正好时序收敛）。根据仿真时每个图像消耗的时钟周期数，可以算出压缩图像时的性能，举例如下表。
 
-| png文件名 | 颜色类型 | 图象长宽 | png 码流大小 (字节) | 消耗的时钟周期数 | 消耗时间 |
-| :-----------: | :----------: | :----------: | :--------------: | :---------------: | :---------------: |
-| img05.png | RGB | 300x256 | 96536 | 1105702 | 23ms |
-| img06.png | 灰度 | 300x263 | 37283 | 395335 | 8ms |
-|   img10.png   |   索引RGB    |   631x742    |      193489      |     2374224 | 48ms |
-| img14.png |     索引RGB |  1920x1080  |      818885      |    10177644 | 204ms |
+| 文件名 | 颜色类型 | 图象长宽 | 像素数 | png 码流大小 (字节) | 时钟周期数 | 消耗时间 |
+| :-----------: | :----------: | :----------: | :--------------: | :---------------: | :---------------: | ------------- |
+| img05.png | RGB | 300x256 | 76800 | 96536 | 1105702 | 23ms |
+| img06.png | 灰度 | 300x263 | 78900 | 37283 | 395335 | 8ms |
+| img09.png | RGBA | 300x263 | 78900 | 125218 | 1382303 | 28ms |
+|   img10.png   |   索引RGB    |   631x742    | 468202 |      193489      |     2374224 | 48ms |
+| img14.png |     索引RGB |  1920x1080  |  2073600  |      818885      |    10177644 | 204ms |
 
 
 

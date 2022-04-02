@@ -10,7 +10,8 @@ module huffman_decoder #(
     parameter    OUTWIDTH = 10
 )(
     rstn, clk,
-    inew, ien, ibit,
+    istart,
+    ien, ibit,
     oen, ocode,
     rdaddr, rddata
 );
@@ -22,22 +23,22 @@ function automatic integer clogb2(input integer val);
 endfunction
 
 input                               rstn, clk;
-input                               inew, ien, ibit;
+input                               istart, ien, ibit;
 output                              oen;
 output  [            OUTWIDTH-1:0]  ocode;
 output  [clogb2(2*NUMCODES-1)-1:0]  rdaddr;
 input   [            OUTWIDTH-1:0]  rddata;
 
-wire                              rstn, clk;
-wire                              inew, ien, ibit;
-reg                               oen = 1'b0;
-reg  [            OUTWIDTH-1:0]   ocode = '0;
-wire [clogb2(2*NUMCODES-1)-1:0]   rdaddr;
-wire [            OUTWIDTH-1:0]   rddata;
+wire                                rstn, clk;
+wire                                istart, ien, ibit;
+reg                                 oen = 1'b0;
+reg    [            OUTWIDTH-1:0]   ocode = '0;
+wire   [clogb2(2*NUMCODES-1)-1:0]   rdaddr;
+wire   [            OUTWIDTH-1:0]   rddata;
 
-reg  [clogb2(2*NUMCODES-1)-2:0]   tpos = '0;
-wire [clogb2(2*NUMCODES-1)-2:0]   ntpos;
-reg                               ienl = 1'b0;
+reg    [clogb2(2*NUMCODES-1)-2:0]   tpos = '0;
+wire   [clogb2(2*NUMCODES-1)-2:0]   ntpos;
+reg                                 ienl = 1'b0;
 
 assign rdaddr = {ntpos, ibit};
 
@@ -47,13 +48,13 @@ always @ (posedge clk or negedge rstn)
     if(~rstn)
         ienl <= '0;
     else
-        ienl <= inew ? '0 : ien;
+        ienl <= istart ? '0 : ien;
 
 always @ (posedge clk or negedge rstn)
     if(~rstn)
         tpos <= '0;
     else
-        tpos <= inew ? '0 : ntpos;
+        tpos <= istart ? '0 : ntpos;
 
 always_comb
     if(ienl && rddata<NUMCODES) begin
