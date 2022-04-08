@@ -917,12 +917,12 @@ function automatic logic [7:0] paeth(input [7:0] a, input [7:0] b, input [7:0] c
     pa = p > sa ? p - sa : sa - p;
     pb = p > sb ? p - sb : sb - p;
     pc = p > sc ? p - sc : sc - p;
-	if (pa <= pb && pa <= pc)
-		return a;
-	else if (pb <= pc)
-		return b;
-	else
-		return c;
+    if (pa <= pb && pa <= pc)
+        return a;
+    else if (pb <= pc)
+        return b;
+    else
+        return c;
 endfunction
 
 reg         nfirstrow = 1'b0;
