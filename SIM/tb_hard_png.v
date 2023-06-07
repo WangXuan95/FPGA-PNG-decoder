@@ -2,7 +2,7 @@
 //--------------------------------------------------------------------------------------------------------
 // Module  : tb_hard_png
 // Type    : simulation, top
-// Standard: SystemVerilog 2005 (IEEE1800-2005)
+// Standard: Verilog 2001 (IEEE1364-2001)
 // Function: testbench for hard_png
 //--------------------------------------------------------------------------------------------------------
 
@@ -18,7 +18,7 @@
 
 module tb_hard_png ();
 
-initial $dumpvars(0, tb_hard_png);
+initial $dumpvars(1, tb_hard_png);
 
 
 reg rstn = 1'b0;
@@ -28,10 +28,10 @@ initial begin repeat(4) @(posedge clk); rstn<=1'b1; end
 
 
 
-reg          istart = '0;
+reg          istart = 1'b0;
 reg          ivalid = 1'b0;
 wire         iready;
-reg  [ 7:0]  ibyte  = '0;
+reg  [ 7:0]  ibyte  = 0;
 
 wire         ostart;
 wire [ 2:0]  colortype;
@@ -66,14 +66,14 @@ hard_png hard_png_i (
 
 
 
-int fptxt = 0, fppng = 0;
+integer fptxt = 0, fppng = 0;
 reg [256*8:1] fname_png;
 reg [256*8:1] fname_txt;
-int png_no = 0;
-int txt_no = 0;
-
-int cyccnt = 0;
-int bytecnt = 0;
+integer png_no = 0;
+integer txt_no = 0;
+integer ii;
+integer cyccnt = 0;
+integer bytecnt = 0;
 
 initial begin
     while(~rstn) @(posedge clk);
@@ -105,9 +105,9 @@ initial begin
                 end
                 if( ivalid & iready ) begin
                     ibyte <= $fgetc(fppng);
-                    bytecnt++;
+                    bytecnt = bytecnt + 1;
                 end
-                cyccnt++;
+                cyccnt = cyccnt + 1;
             end
             ivalid <= 1'b0;
             
@@ -131,7 +131,7 @@ initial begin
                 $finish;
             end
             
-            for(int ii=0; ii<width*height; ii++) begin
+            for(ii=0; ii<width*height; ii=ii+1) begin
                 @ (posedge clk);
                 while(~ovalid) @ (posedge clk);
                 $fwrite(fptxt, "%02x%02x%02x%02x ", opixelr, opixelg, opixelb, opixela);
